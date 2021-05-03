@@ -32,7 +32,7 @@ bool firstMouse = true;
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
-float lightX, lightY, lightZ;
+float lightX, lightY = 1.0f, lightZ;
 glm::vec3 lightPos;
 
 bool rotFlg1;
@@ -185,7 +185,7 @@ void renderLamp(glm::mat4 projection, glm::mat4 view) {
 	if (rotFlg2)
 	{
 		lightX = 1.0f * sin(glfwGetTime());
-		lightY = 0.1f;
+		lightY = 2.0f * (sin(glfwGetTime()) * 0.5) * cos(glfwGetTime());
 		lightZ = -2.0f * cos(glfwGetTime());
 
 		lightPos = glm::vec3(lightX, lightY, lightZ);
@@ -245,6 +245,45 @@ void renderMainCube(glm::mat4 projection, glm::mat4 view) {
 	glDrawArrays(GL_TRIANGLES, 0, 36);
 }
 
+
+void renderSecondCube(glm::mat4 projection, glm::mat4 view) {
+	glm::vec3 cubePos = glm::vec3(0, -0.5, 0);
+
+	glUseProgram(cubeShader);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, cubeTexture);
+
+	unsigned int objectColorLoc = glGetUniformLocation(cubeShader, "objectColor");
+	glUniform3f(objectColorLoc, 1.0f, 0.5f, 0.31f);
+
+	unsigned int lightColorLoc = glGetUniformLocation(cubeShader, "lightColor");
+	glUniform3f(lightColorLoc, 1.0f, 1.0f, 1.0f);
+
+	unsigned int lightPosLoc = glGetUniformLocation(cubeShader, "lightPos");
+	glUniform3f(lightPosLoc, lightPos.x, lightPos.y, lightPos.z);
+
+	unsigned int cameraPosLoc = glGetUniformLocation(cubeShader, "viewPos");
+	glUniform3f(cameraPosLoc, camera.Position.x, camera.Position.y, camera.Position.z);
+
+	unsigned int projectionLoc = glGetUniformLocation(cubeShader, "projection");
+	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+
+	unsigned int viewLoc = glGetUniformLocation(cubeShader, "view");
+	glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+
+	glm::mat4 model = glm::mat4(1.0f);
+
+	model = glm::translate(model, cubePos);
+	model = glm::scale(model, glm::vec3(10.0f, 0.1f, 10.0f));
+
+	unsigned int modelLoc = glGetUniformLocation(cubeShader, "model");
+	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+
+	glBindVertexArray(cubeVAO);
+	glDrawArrays(GL_TRIANGLES, 0, 36);
+}
+
+
 void display()
 {	
 	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
@@ -255,6 +294,7 @@ void display()
 
 	renderMainCube(projection, view);
 	renderLamp(projection, view);
+	renderSecondCube(projection, view);
 }
 
 void generateTexture2D(unsigned char *data, int width, int height, int nrChannels)
@@ -300,7 +340,7 @@ int main()
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
 	// glfwSetCursorPosCallback(window, mouse_callback);
-	//glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	// glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
 	{
