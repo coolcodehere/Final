@@ -186,6 +186,8 @@ void init(void)
 	lightZ = 2.0f;
 
 	cubeTexture = loadTexture("../../src/resources/textures/awesomeface.png");
+	glUseProgram(cubeShader);
+	glUniform1i(glGetUniformLocation(cubeShader, "cubeTexture"), 0);
 }
 
 void renderLamp(glm::mat4 projection, glm::mat4 view) {
@@ -223,8 +225,9 @@ void renderLamp(glm::mat4 projection, glm::mat4 view) {
 }
 
 void renderMainCube(glm::mat4 projection, glm::mat4 view) {
-	// activate shader
-	// be sure to activate shader when setting uniforms/drawing objects
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, cubeTexture);
+	
 	glUseProgram(cubeShader);
 	
 	unsigned int objectColorLoc = glGetUniformLocation(cubeShader, "objectColor");
@@ -268,9 +271,6 @@ void renderMainCube(glm::mat4 projection, glm::mat4 view) {
 
 void display()
 {	
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, cubeTexture);
-
 	// Render
 	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
