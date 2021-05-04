@@ -11,7 +11,6 @@ using namespace std;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow *window);
-void generateTexture2D(unsigned char *data, int width, int height, int nrChannels);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 
 const unsigned int SCR_WIDTH = 1500;
@@ -36,11 +35,12 @@ float lightX, lightY = 1.0f, lightZ;
 glm::vec3 lightPos;
 
 bool rotFlg1;
-bool rotFlg2;
+bool rotFlg2 = true;
 float angle1;
 float angle2;
 
 unsigned int cubeTexture;
+unsigned int floorTexture;
 
 unsigned int loadTexture(char const * path)
 {
@@ -48,7 +48,7 @@ unsigned int loadTexture(char const * path)
 	glGenTextures(1, &textureID);
 
 	int width, height, nrComponents;
-	stbi_set_flip_vertically_on_load(true);
+	stbi_set_flip_vertically_on_load(false);
 	unsigned char *data = stbi_load(path, &width, &height, &nrComponents, 0);
 	if (data)
 	{
@@ -60,14 +60,14 @@ unsigned int loadTexture(char const * path)
 		else if (nrComponents == 4)
 			format = GL_RGBA;
 
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
 		glBindTexture(GL_TEXTURE_2D, textureID);
 		glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
 		glGenerateMipmap(GL_TEXTURE_2D);
-
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 		stbi_image_free(data);
 	}
@@ -89,47 +89,53 @@ void init(void)
 
 	float vertices[] = {
 		// Vertex position    // Normals           //Texture
-		-0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  -1.0f, -1.0f,
-		 0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f,  -1.0f,
-		 0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f,  1.0f,
-		 0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f,  1.0f,
-		-0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  -1.0f, 1.0f,
-		-0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  -1.0f, -1.0f,
+		//top
+		-0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
+		 0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 0.0f,
+		 0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
+		 0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
+		-0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 1.0f,
+		-0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
 
-		-0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  -1.0f, -1.0f,
-		 0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f,  -1.0f,
-		 0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f,  1.0f,
-		 0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f,  1.0f,
-		-0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  -1.0f, 1.0f,
-		-0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  -1.0f, -1.0f,
+		//bottom
+		-0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 0.0f,
+		 0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 0.0f,
+		 0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 1.0f,
+		 0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 1.0f,
+		-0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 1.0f,
+		-0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 0.0f,
 
-		-0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  -1.0f, 1.0f,
-		-0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  -1.0f, 1.0f,
-		-0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  -1.0f, -1.0f,
-		-0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  -1.0f, -1.0f,
-		-0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  -1.0f, -1.0f,
-		-0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  -1.0f, 1.0f,
-
+		//left
+		-0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
+		-0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+		-0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
+		-0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
+		-0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+		-0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
+		
+		//right
 		 0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
-		 0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f, -1.0f,
-		 0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f, -1.0f,
-		 0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f, -1.0f,
-		 0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
+		 0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+		 0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
+		 0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
+		 0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
 		 0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
-
-		-0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  -1.0f, -1.0f,
-		 0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  1.0f, -1.0f,
-		 0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f, -1.0f,
-		 0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f, -1.0f,
-		-0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  -1.0f, -1.0f,
-		-0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  -1.0f, -1.0f,
-
-		-0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  -1.0f, 1.0f,
-		 0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 1.0f,
-		 0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 1.0f,
-		 0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 1.0f,
-		-0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  -1.0f, 1.0f,
-		-0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  -1.0f, 1.0f
+		
+		//bakc
+		-0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 0.0f,
+		 0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  1.0f,  0.0f,
+		 0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f,   1.0f,
+		 0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f,   1.0f,
+		-0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  0.0f,  1.0f,
+		-0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 0.0f,
+		
+		//front
+		-0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,   0.0f,   0.0f,
+		 0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,   1.0f,  0.0f,
+		 0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,   1.0f,  1.0f,
+		 0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,   1.0f,  1.0f,
+		-0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,   0.0f,  1.0f,
+		-0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,   0.0f,  0.0f
 	};
 
 	glGenVertexArrays(1, &cubeVAO);
@@ -157,8 +163,8 @@ void init(void)
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
 
-	rotFlg1 = false;
-	rotFlg2 = false;
+	rotFlg1 = true;
+	rotFlg2 = true;
 	angle1 = 0.0f;
 	angle2 = 0.0f;
 
@@ -166,9 +172,12 @@ void init(void)
 	lightY = 0.1f;
 	lightZ = 2.0f;
 
-	cubeTexture = loadTexture("../../src/resources/textures/awesomeface.png");
+	cubeTexture = loadTexture("../../src/resources/textures/wojak.png");
+	floorTexture = loadTexture("../../src/resources/textures/wall.jpg");
+
 	glUseProgram(cubeShader);
 	glUniform1i(glGetUniformLocation(cubeShader, "cubeTexture"), 0);
+
 }
 
 void renderLamp(glm::mat4 projection, glm::mat4 view) {
@@ -204,21 +213,42 @@ void renderLamp(glm::mat4 projection, glm::mat4 view) {
 }
 
 void renderMainCube(glm::mat4 projection, glm::mat4 view) {
+	//Render
+	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // also clear the depth buffer now!
+
+	//activate shader
+	//be sure to activate shader when setting uniforms/drawing objects
 	glUseProgram(cubeShader);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, cubeTexture);
 
-	unsigned int objectColorLoc = glGetUniformLocation(cubeShader, "objectColor");
-	glUniform3f(objectColorLoc, 1.0f, 0.5f, 0.31f);
-
-	unsigned int lightColorLoc = glGetUniformLocation(cubeShader, "lightColor");
-	glUniform3f(lightColorLoc, 1.0f, 1.0f, 1.0f);
-
-	unsigned int lightPosLoc = glGetUniformLocation(cubeShader, "lightPos");
+	unsigned int lightPosLoc = glGetUniformLocation(cubeShader, "light.position");
 	glUniform3f(lightPosLoc, lightPos.x, lightPos.y, lightPos.z);
 
 	unsigned int cameraPosLoc = glGetUniformLocation(cubeShader, "viewPos");
 	glUniform3f(cameraPosLoc, camera.Position.x, camera.Position.y, camera.Position.z);
+
+	//light properties
+	unsigned int ambientColorLoc = glGetUniformLocation(cubeShader, "light.ambient");
+	glUniform3f(ambientColorLoc, 0.4f, 0.4f, 0.4f);
+
+	unsigned int diffuseColorLoc = glGetUniformLocation(cubeShader, "light.diffuse");
+	//darken the light a bit to fit the scene
+	glUniform3f(diffuseColorLoc, 0.5f, 0.5f, 0.5f);
+
+	unsigned int specularColorLoc = glGetUniformLocation(cubeShader, "light.specular");
+	glUniform3f(specularColorLoc, 1.0f, 1.0f, 1.0f);
+	
+	//material properties
+	//specular lighting doesn't have full effect on this object's material
+	unsigned int materialSpecularLoc = glGetUniformLocation(cubeShader, "material.specular");
+	glUniform3f(materialSpecularLoc, 0.5f, 0.5f, 0.5f);
+
+	unsigned int materialShininessLoc = glGetUniformLocation(cubeShader, "material.shininess");
+	glUniform1f(materialShininessLoc, 64.0f);
+
+	//view/projection transformations
+	projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+	view = camera.GetViewMatrix();
 
 	unsigned int projectionLoc = glGetUniformLocation(cubeShader, "projection");
 	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
@@ -226,28 +256,37 @@ void renderMainCube(glm::mat4 projection, glm::mat4 view) {
 	unsigned int viewLoc = glGetUniformLocation(cubeShader, "view");
 	glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
 
-	glm::mat4 model = glm::mat4(1.0f);
+	float angle = -(float)glfwGetTime()/3.0;
 
-	if (rotFlg1)
-	{
-		angle1 = (float)glfwGetTime() / 2.0;
-		model = glm::rotate(model, angle1, glm::vec3(0.0f, 1.0f, 0.0f));
-	}
-	else {
-		model = glm::rotate(model, angle1, glm::vec3(0.0f, 1.0f, 0.0f));
-	}
+	//world transformation
+	glm::mat4 model = glm::mat4(1.0f);
+	model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 
 	model = glm::scale(model, glm::vec3(1.0f));
+
+	model = glm::rotate(model, angle, glm::vec3(1.0f, 1.0f, 1.0f));
+
+	
+
+
+
 	unsigned int modelLoc = glGetUniformLocation(cubeShader, "model");
 	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 
+	//bind diffuse map
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, cubeTexture);
+
+	//render the cube
 	glBindVertexArray(cubeVAO);
 	glDrawArrays(GL_TRIANGLES, 0, 36);
+
 }
 
 
 void renderSecondCube(glm::mat4 projection, glm::mat4 view) {
-	glm::vec3 cubePos = glm::vec3(0, -0.5, 0);
+
+	glm::vec3 cubePos = glm::vec3(0, -1.0, 0);
 
 	glUseProgram(cubeShader);
 	glActiveTexture(GL_TEXTURE0);
@@ -278,6 +317,9 @@ void renderSecondCube(glm::mat4 projection, glm::mat4 view) {
 
 	unsigned int modelLoc = glGetUniformLocation(cubeShader, "model");
 	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+	
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, floorTexture);
 
 	glBindVertexArray(cubeVAO);
 	glDrawArrays(GL_TRIANGLES, 0, 36);
@@ -297,31 +339,6 @@ void display()
 	renderSecondCube(projection, view);
 }
 
-void generateTexture2D(unsigned char *data, int width, int height, int nrChannels)
-{
-	if (data)
-	{
-		if (nrChannels == 4) {
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-		}
-		else if (nrChannels == 1) {
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, width, height, 0, GL_RED, GL_UNSIGNED_BYTE, data);
-		}
-		else if (nrChannels == 2) {
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RG, width, height, 0, GL_RG, GL_UNSIGNED_BYTE, data);
-		}
-		else {
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-		}
-		glGenerateMipmap(GL_TEXTURE_2D);
-	}
-	else
-	{
-		std::cout << "Failed to load texture" << std::endl;
-	}
-	stbi_image_free(data);
-}
-
 int main()
 {
 	glfwInit();
@@ -329,7 +346,7 @@ int main()
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Assignment 3: Q1 William Walter", NULL, NULL);
+	GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Final", NULL, NULL);
 	if (window == NULL)
 	{
 		std::cout << "Failed to create GLFW window" << std::endl;
