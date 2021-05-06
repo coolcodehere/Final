@@ -22,6 +22,7 @@ unsigned int lightVAO;
 
 unsigned int cubeShader;
 unsigned int lampShader;
+unsigned int depthShader;
 
 Camera camera(glm::vec3(0.0f, 0.0f, 3.5f));
 float lastX = SCR_WIDTH / 2.0f;
@@ -79,6 +80,38 @@ unsigned int loadTexture(char const * path)
 
 	return textureID;
 }
+
+unsigned int loadCubemap(vector<std::string> faces)
+{
+    unsigned int textureID;
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+
+    int width, height, nrChannels;
+    for (unsigned int i = 0; i < faces.size(); i++)
+    {
+        unsigned char *data = stbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
+        if (data)
+        {
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 
+                         0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data
+            );
+            stbi_image_free(data);
+        }
+        else
+        {
+            std::cout << "Cubemap tex failed to load at path: " << faces[i] << std::endl;
+            stbi_image_free(data);
+        }
+    }
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    return textureID;
+}  
 
 void init(void)
 {
@@ -190,18 +223,12 @@ void renderLamp(glm::mat4 projection, glm::mat4 view) {
 
 	glm::mat4 model = glm::mat4(1.0f);
 
-	
-	if (rotFlg2)
-	{
-		lightX = 1.0f * sin(glfwGetTime());
-		lightY = 2.0f * (sin(glfwGetTime()) * 0.5) * cos(glfwGetTime());
-		lightZ = -2.0f * cos(glfwGetTime());
+	lightX = sin(glfwGetTime());
+	lightY = 2.5 * (sin(glfwGetTime()) * 0.5) * cos(glfwGetTime());
+	lightZ = cos(glfwGetTime());
 
-		lightPos = glm::vec3(lightX, lightY, lightZ);
-	}
-	else {
-		lightPos = glm::vec3(lightX, lightY, lightZ);
-	}
+	lightPos = glm::vec3(lightX, lightY, lightZ);
+
 
 	model = glm::translate(model, lightPos);
 	model = glm::scale(model, glm::vec3(0.2f)); // a smaller cube
@@ -213,12 +240,8 @@ void renderLamp(glm::mat4 projection, glm::mat4 view) {
 }
 
 void renderMainCube(glm::mat4 projection, glm::mat4 view) {
-	//Render
 	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // also clear the depth buffer now!
-
-	//activate shader
-	//be sure to activate shader when setting uniforms/drawing objects
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glUseProgram(cubeShader);
 
 	unsigned int lightPosLoc = glGetUniformLocation(cubeShader, "light.position");
@@ -227,26 +250,21 @@ void renderMainCube(glm::mat4 projection, glm::mat4 view) {
 	unsigned int cameraPosLoc = glGetUniformLocation(cubeShader, "viewPos");
 	glUniform3f(cameraPosLoc, camera.Position.x, camera.Position.y, camera.Position.z);
 
-	//light properties
 	unsigned int ambientColorLoc = glGetUniformLocation(cubeShader, "light.ambient");
 	glUniform3f(ambientColorLoc, 0.4f, 0.4f, 0.4f);
 
 	unsigned int diffuseColorLoc = glGetUniformLocation(cubeShader, "light.diffuse");
-	//darken the light a bit to fit the scene
 	glUniform3f(diffuseColorLoc, 0.5f, 0.5f, 0.5f);
 
 	unsigned int specularColorLoc = glGetUniformLocation(cubeShader, "light.specular");
 	glUniform3f(specularColorLoc, 1.0f, 1.0f, 1.0f);
 	
-	//material properties
-	//specular lighting doesn't have full effect on this object's material
 	unsigned int materialSpecularLoc = glGetUniformLocation(cubeShader, "material.specular");
 	glUniform3f(materialSpecularLoc, 0.5f, 0.5f, 0.5f);
 
 	unsigned int materialShininessLoc = glGetUniformLocation(cubeShader, "material.shininess");
 	glUniform1f(materialShininessLoc, 64.0f);
 
-	//view/projection transformations
 	projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
 	view = camera.GetViewMatrix();
 
@@ -258,33 +276,26 @@ void renderMainCube(glm::mat4 projection, glm::mat4 view) {
 
 	float angle = -(float)glfwGetTime()/3.0;
 
-	//world transformation
 	glm::mat4 model = glm::mat4(1.0f);
 	model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 
 	model = glm::scale(model, glm::vec3(1.0f));
 
-	model = glm::rotate(model, angle, glm::vec3(1.0f, 1.0f, 1.0f));
-
-	
-
-
+	model = glm::rotate(model, angle, glm::vec3(1.0f, sin(1), 1.0f));
 
 	unsigned int modelLoc = glGetUniformLocation(cubeShader, "model");
 	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 
-	//bind diffuse map
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, cubeTexture);
 
-	//render the cube
 	glBindVertexArray(cubeVAO);
 	glDrawArrays(GL_TRIANGLES, 0, 36);
 
 }
 
 
-void renderSecondCube(glm::mat4 projection, glm::mat4 view) {
+void renderFloor(glm::mat4 projection, glm::mat4 view) {
 
 	glm::vec3 cubePos = glm::vec3(0, -1.0, 0);
 
@@ -325,6 +336,55 @@ void renderSecondCube(glm::mat4 projection, glm::mat4 view) {
 	glDrawArrays(GL_TRIANGLES, 0, 36);
 }
 
+void renderSkybox(glm::mat4 projection, glm::mat4 view) {
+	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glUseProgram(cubeShader);
+
+	unsigned int lightPosLoc = glGetUniformLocation(cubeShader, "light.position");
+	glUniform3f(lightPosLoc, lightPos.x, lightPos.y, lightPos.z);
+
+	unsigned int cameraPosLoc = glGetUniformLocation(cubeShader, "viewPos");
+	glUniform3f(cameraPosLoc, camera.Position.x, camera.Position.y, camera.Position.z);
+
+	unsigned int ambientColorLoc = glGetUniformLocation(cubeShader, "light.ambient");
+	glUniform3f(ambientColorLoc, 0.4f, 0.4f, 0.4f);
+
+	unsigned int diffuseColorLoc = glGetUniformLocation(cubeShader, "light.diffuse");
+	glUniform3f(diffuseColorLoc, 0.5f, 0.5f, 0.5f);
+
+	unsigned int specularColorLoc = glGetUniformLocation(cubeShader, "light.specular");
+	glUniform3f(specularColorLoc, 1.0f, 1.0f, 1.0f);
+	
+	unsigned int materialSpecularLoc = glGetUniformLocation(cubeShader, "material.specular");
+	glUniform3f(materialSpecularLoc, 0.5f, 0.5f, 0.5f);
+
+	unsigned int materialShininessLoc = glGetUniformLocation(cubeShader, "material.shininess");
+	glUniform1f(materialShininessLoc, 64.0f);
+
+	projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+	view = camera.GetViewMatrix();
+
+	unsigned int projectionLoc = glGetUniformLocation(cubeShader, "projection");
+	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+
+	unsigned int viewLoc = glGetUniformLocation(cubeShader, "view");
+	glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+
+	float angle = -(float)glfwGetTime()/3.0;
+
+	glm::mat4 model = glm::mat4(1.0f);
+	model = glm::scale(model, glm::vec3(10.0f));
+
+	unsigned int modelLoc = glGetUniformLocation(cubeShader, "model");
+	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, cubeTexture);
+
+
+}
+		
 
 void display()
 {	
@@ -336,7 +396,8 @@ void display()
 
 	renderMainCube(projection, view);
 	renderLamp(projection, view);
-	renderSecondCube(projection, view);
+	renderFloor(projection, view);
+	// renderSkybox(projection, view);
 }
 
 int main()
