@@ -19,10 +19,12 @@ const unsigned int SCR_HEIGHT = 1000;
 unsigned int VBO;
 unsigned int cubeVAO;
 unsigned int lightVAO;
+unsigned int skyboxVAO, skyboxVBO;
 
 unsigned int cubeShader;
 unsigned int lampShader;
-unsigned int depthShader;
+unsigned int skyboxShader;
+vector<std::string> faces;
 
 Camera camera(glm::vec3(0.0f, 0.0f, 3.5f));
 float lastX = SCR_WIDTH / 2.0f;
@@ -42,6 +44,7 @@ float angle2;
 
 unsigned int cubeTexture;
 unsigned int floorTexture;
+unsigned int skyboxTexture;
 
 unsigned int loadTexture(char const * path)
 {
@@ -112,6 +115,70 @@ unsigned int loadCubemap(vector<std::string> faces)
 
     return textureID;
 }  
+
+void initSkybox() {
+    GLfloat skyboxVertices[] = {
+        // Positions          
+        -1.0f,  1.0f, -1.0f,
+        -1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,
+         1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f,
+  
+        -1.0f, -1.0f,  1.0f,
+        -1.0f, -1.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f,  1.0f,
+        -1.0f, -1.0f,  1.0f,
+  
+         1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,
+   
+        -1.0f, -1.0f,  1.0f,
+        -1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f, -1.0f,  1.0f,
+        -1.0f, -1.0f,  1.0f,
+  
+        -1.0f,  1.0f, -1.0f,
+         1.0f,  1.0f, -1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+        -1.0f,  1.0f,  1.0f,
+        -1.0f,  1.0f, -1.0f,
+  
+        -1.0f, -1.0f, -1.0f,
+        -1.0f, -1.0f,  1.0f,
+         1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,
+        -1.0f, -1.0f,  1.0f,
+         1.0f, -1.0f,  1.0f
+    };
+	glGenVertexArrays(1, &skyboxVAO);
+    glGenBuffers(1, &skyboxVBO);
+    glBindVertexArray(skyboxVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
+    glBindVertexArray(0);
+
+	
+    faces.push_back("../../src/resources/textures/skybox/right.jpg");
+    faces.push_back("../../src/resources/textures/skybox/left.jpg");
+    faces.push_back("../../src/resources/textures/skybox/top.jpg");
+    faces.push_back("../../src/resources/textures/skybox/bottom.jpg");
+    faces.push_back("../../src/resources/textures/skybox/front.jpg");
+    faces.push_back("../../src/resources/textures/skybox/back.jpg");
+    skyboxTexture = loadCubemap(faces);	
+}
 
 void init(void)
 {
@@ -205,7 +272,7 @@ void init(void)
 	lightY = 0.1f;
 	lightZ = 2.0f;
 
-	cubeTexture = loadTexture("../../src/resources/textures/wojak.png");
+	cubeTexture = loadTexture("../../src/resources/textures/awesomeface.png");
 	floorTexture = loadTexture("../../src/resources/textures/wall.jpg");
 
 	glUseProgram(cubeShader);
@@ -337,51 +404,21 @@ void renderFloor(glm::mat4 projection, glm::mat4 view) {
 }
 
 void renderSkybox(glm::mat4 projection, glm::mat4 view) {
-	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glUseProgram(cubeShader);
-
-	unsigned int lightPosLoc = glGetUniformLocation(cubeShader, "light.position");
-	glUniform3f(lightPosLoc, lightPos.x, lightPos.y, lightPos.z);
-
-	unsigned int cameraPosLoc = glGetUniformLocation(cubeShader, "viewPos");
-	glUniform3f(cameraPosLoc, camera.Position.x, camera.Position.y, camera.Position.z);
-
-	unsigned int ambientColorLoc = glGetUniformLocation(cubeShader, "light.ambient");
-	glUniform3f(ambientColorLoc, 0.4f, 0.4f, 0.4f);
-
-	unsigned int diffuseColorLoc = glGetUniformLocation(cubeShader, "light.diffuse");
-	glUniform3f(diffuseColorLoc, 0.5f, 0.5f, 0.5f);
-
-	unsigned int specularColorLoc = glGetUniformLocation(cubeShader, "light.specular");
-	glUniform3f(specularColorLoc, 1.0f, 1.0f, 1.0f);
-	
-	unsigned int materialSpecularLoc = glGetUniformLocation(cubeShader, "material.specular");
-	glUniform3f(materialSpecularLoc, 0.5f, 0.5f, 0.5f);
-
-	unsigned int materialShininessLoc = glGetUniformLocation(cubeShader, "material.shininess");
-	glUniform1f(materialShininessLoc, 64.0f);
-
-	projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
-	view = camera.GetViewMatrix();
-
-	unsigned int projectionLoc = glGetUniformLocation(cubeShader, "projection");
-	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
-
-	unsigned int viewLoc = glGetUniformLocation(cubeShader, "view");
-	glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-
-	float angle = -(float)glfwGetTime()/3.0;
-
-	glm::mat4 model = glm::mat4(1.0f);
-	model = glm::scale(model, glm::vec3(10.0f));
-
-	unsigned int modelLoc = glGetUniformLocation(cubeShader, "model");
-	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-
+	glUniform1i(glGetUniformLocation(skyboxShader, "skybox"), 3);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture);  
+ 	glDepthFunc(GL_LEQUAL);  // Change depth function so depth test passes when values are equal to depth buffer's content
+	glUseProgram(skyboxShader);	
+	view = glm::mat4(glm::mat3(camera.GetViewMatrix()));	// Remove any translation component of the view matrix
+	glUniformMatrix4fv(glGetUniformLocation(skyboxShader, "view"), 1, GL_FALSE, glm::value_ptr(view));
+	glUniformMatrix4fv(glGetUniformLocation(skyboxShader, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+	// skybox cube
+	glBindVertexArray(skyboxVAO);
 	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, cubeTexture);
-
+	glUniform1i(glGetUniformLocation(skyboxShader, "skybox"), 0);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture);
+	glDrawArrays(GL_TRIANGLES, 0, 36);
+	glBindVertexArray(0);
+	glDepthFunc(GL_LESS); // Set depth function back to default
 
 }
 		
@@ -427,7 +464,7 @@ int main()
 	}
 
 	init();
-
+	initSkybox();
 	while (!glfwWindowShouldClose(window))
 	{
 		float currentFrame = glfwGetTime();
