@@ -322,7 +322,7 @@ void renderMainCube(glm::mat4 projection, glm::mat4 view) {
 	glUniform3f(cameraPosLoc, camera.Position.x, camera.Position.y, camera.Position.z);
 
 	unsigned int ambientColorLoc = glGetUniformLocation(cubeShader, "light.ambient");
-	glUniform3f(ambientColorLoc, 0.4f, 0.4f, 0.4f);
+	glUniform3f(ambientColorLoc, 0.2f, 0.2f, 0.2f);
 
 	unsigned int diffuseColorLoc = glGetUniformLocation(cubeShader, "light.diffuse");
 	glUniform3f(diffuseColorLoc, 0.5f, 0.5f, 0.5f);
