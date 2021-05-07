@@ -1,5 +1,6 @@
 #include "loadShaders.h"
 #include "camera.h"
+#include "shader_m.h"
 #include <stb_image.h>
 #include <iostream>
 
@@ -23,7 +24,6 @@ unsigned int skyboxVAO, skyboxVBO;
 
 unsigned int cubeShader;
 unsigned int lampShader;
-unsigned int skyboxShader;
 vector<std::string> faces;
 
 Camera camera(glm::vec3(0.0f, 0.0f, 3.5f));
@@ -96,14 +96,12 @@ unsigned int loadCubemap(vector<std::string> faces)
         unsigned char *data = stbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
         if (data)
         {
-            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 
-                         0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data
-            );
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
             stbi_image_free(data);
         }
         else
         {
-            std::cout << "Cubemap tex failed to load at path: " << faces[i] << std::endl;
+            std::cout << "Cubemap texture failed to load at path: " << faces[i] << std::endl;
             stbi_image_free(data);
         }
     }
@@ -114,9 +112,10 @@ unsigned int loadCubemap(vector<std::string> faces)
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
     return textureID;
-}  
+}
 
-void initSkybox() {
+Shader initSkybox() {
+	Shader skyboxShader("../../src/shader/skybox.vert", "../../src/shader/skybox.frag");
     GLfloat skyboxVertices[] = {
         // Positions          
         -1.0f,  1.0f, -1.0f,
@@ -161,14 +160,14 @@ void initSkybox() {
         -1.0f, -1.0f,  1.0f,
          1.0f, -1.0f,  1.0f
     };
-	glGenVertexArrays(1, &skyboxVAO);
+
+    glGenVertexArrays(1, &skyboxVAO);
     glGenBuffers(1, &skyboxVBO);
     glBindVertexArray(skyboxVAO);
     glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
-    glBindVertexArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 
 	
     faces.push_back("../../src/resources/textures/skybox/right.jpg");
@@ -177,7 +176,12 @@ void initSkybox() {
     faces.push_back("../../src/resources/textures/skybox/bottom.jpg");
     faces.push_back("../../src/resources/textures/skybox/front.jpg");
     faces.push_back("../../src/resources/textures/skybox/back.jpg");
+
     skyboxTexture = loadCubemap(faces);	
+	skyboxShader.use();
+    skyboxShader.setInt("skybox", 0);
+
+	return skyboxShader;
 }
 
 void init(void)
@@ -403,27 +407,28 @@ void renderFloor(glm::mat4 projection, glm::mat4 view) {
 	glDrawArrays(GL_TRIANGLES, 0, 36);
 }
 
-void renderSkybox(glm::mat4 projection, glm::mat4 view) {
-	glUniform1i(glGetUniformLocation(skyboxShader, "skybox"), 3);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture);  
- 	glDepthFunc(GL_LEQUAL);  // Change depth function so depth test passes when values are equal to depth buffer's content
-	glUseProgram(skyboxShader);	
-	view = glm::mat4(glm::mat3(camera.GetViewMatrix()));	// Remove any translation component of the view matrix
-	glUniformMatrix4fv(glGetUniformLocation(skyboxShader, "view"), 1, GL_FALSE, glm::value_ptr(view));
-	glUniformMatrix4fv(glGetUniformLocation(skyboxShader, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-	// skybox cube
-	glBindVertexArray(skyboxVAO);
-	glActiveTexture(GL_TEXTURE0);
-	glUniform1i(glGetUniformLocation(skyboxShader, "skybox"), 0);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture);
-	glDrawArrays(GL_TRIANGLES, 0, 36);
-	glBindVertexArray(0);
-	glDepthFunc(GL_LESS); // Set depth function back to default
+void renderSkybox(Shader skyboxShader, glm::mat4 projection, glm::mat4 view) {
+        // draw scene as normal
+        glm::mat4 model = glm::mat4(1.0f);
+
+        // draw skybox as last
+        glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
+        skyboxShader.use();
+        view = glm::mat4(glm::mat3(camera.GetViewMatrix())); // remove translation from the view matrix
+        skyboxShader.setMat4("view", view);
+        skyboxShader.setMat4("projection", projection);
+        // skybox cube
+        glBindVertexArray(skyboxVAO);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        glBindVertexArray(0);
+        glDepthFunc(GL_LESS); // set depth function back to default
 
 }
 		
 
-void display()
+void display(Shader skyboxShader)
 {	
 	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -434,7 +439,7 @@ void display()
 	renderMainCube(projection, view);
 	renderLamp(projection, view);
 	renderFloor(projection, view);
-	// renderSkybox(projection, view);
+	renderSkybox(skyboxShader, projection, view);
 }
 
 int main()
@@ -464,7 +469,7 @@ int main()
 	}
 
 	init();
-	initSkybox();
+	Shader skyboxShader = initSkybox();
 	while (!glfwWindowShouldClose(window))
 	{
 		float currentFrame = glfwGetTime();
@@ -473,7 +478,7 @@ int main()
 
 		processInput(window);
 
-		display();
+		display(skyboxShader);
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
